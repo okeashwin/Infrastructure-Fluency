@@ -8,6 +8,10 @@ var client = redis.createClient(6379, '127.0.0.1', {})
 var args = process.argv;
 var portNumber = args[2];
 
+// Server Port Numbers
+var serverPorts = [ 3000, 3001, 3002 ];
+
+
 ///////////// WEB ROUTES
 	
 // Add hook to make it easier to get all visited URLS.
@@ -16,16 +20,14 @@ app.use(function(req, res, next)
 	console.log(req.method, req.url);
 	client.lpush('requests', req.url);
 	client.ltrim('requests', 0, 4);
-
-	// ... INSERT HERE.
-
 	next(); // Passing the request to the next handler in the stack.
 });
 
+app.get('/', function(req, res) {
+  res.send('hello world')
+})
 
 app.post('/upload',[ multer({ dest: './uploads/'}), function(req, res){
-   // console.log(req.body) // form fields
-   // console.log(req.files) // form files
 
    if( req.files.image )
    {
@@ -42,11 +44,13 @@ app.post('/upload',[ multer({ dest: './uploads/'}), function(req, res){
 
 app.get('/meow', function(req, res) {
 	{
-		// if (err) throw err
 		res.writeHead(200, {'content-type':'text/html'});
 		var imageData = client.lpop('image', function(err, imageData){
 			if(err) throw err
-			res.write("<h1>\n<img src='data:my_pic.jpg;base64,"+imageData+"'/>");
+			if(imageData)
+				res.write("<h1>\n<img src='data:my_pic.jpg;base64,"+imageData+"'/>");
+			else
+				res.write("<h3>No Image found to display</h3>");
 			res.end();
 		});
 	}
@@ -98,16 +102,12 @@ var server = app.listen(portNumber, function () {
   var port = server.address().port
   //console.log(port);
   var serverEndpoint = "http://localhost:"+port;
-  console.log(serverEndpoint);
-  // Add this server to the serversList
   client.lpush('serversList', serverEndpoint);
-  console.log('Example app listening at http://%s:%s', host, port)
+  console.log('Example app listening at '+serverEndpoint);
+
 })
 }
 
-app.get('/', function(req, res) {
-  res.send('hello world')
+serverPorts.forEach(function(port) {
+	startServer(port);
 })
-
-startServer(portNumber);
-
